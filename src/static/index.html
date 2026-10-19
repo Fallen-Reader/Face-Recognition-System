@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Face Recognition</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #16181d; --muted: #6a7080; --border: #e3e6ec;
+    --accent: #2f6df6; --accent-text: #ffffff;
+    --ok: #0e8a45; --ok-bg: #e4f6ec; --bad: #c62f2f; --bad-bg: #fdeaea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101216; --card: #181b21; --text: #eceef2; --muted: #98a0b3; --border: #2a2e37;
+      --accent: #6b94ff; --accent-text: #0b0d12;
+      --ok: #3ddc84; --ok-bg: #12301f; --bad: #ff7a7a; --bad-bg: #3a1a1a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  header { padding: 22px 0 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .spacer { flex: 1; }
+  main {
+    display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    gap: 16px; padding: 16px 0 32px;
+  }
+  @media (max-width: 820px) {
+    .wrap { padding: 0 16px; }
+    main { grid-template-columns: 1fr; }
+  }
+  .stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+  .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  h2 { font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+
+  .pill {
+    font-size: 12px; padding: 2px 10px; border-radius: 999px;
+    background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+  }
+  .pill.live { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+
+  .video-wrap { position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4 / 3; }
+  .video-wrap .placeholder {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: #8b93a5; font-size: 14px; text-align: center; padding: 16px;
+  }
+  .video-wrap img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; display: block; }
+  .video-wrap img[hidden] { display: none; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; min-height: 30px; align-items: center; }
+  .chip { padding: 4px 12px; border-radius: 999px; font-size: 14px; background: var(--ok-bg); color: var(--ok); }
+  .chip.unknown { background: var(--bad-bg); color: var(--bad); }
+  .chip small { opacity: .8; margin-left: 4px; }
+  .muted { color: var(--muted); font-size: 14px; }
+
+  label.field { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input[type="text"] {
+    width: 100%; padding: 10px 12px; font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .check { display: flex; align-items: center; gap: 8px; margin: 10px 0 14px; font-size: 14px; }
+
+  .btn {
+    font: inherit; font-size: 13px; line-height: 1.4; cursor: pointer; display: inline-block;
+    padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--text); text-decoration: none;
+  }
+  .btn:hover { background: var(--bg); }
+  .btn:disabled { opacity: .6; cursor: progress; }
+  .btn.danger { color: var(--bad); }
+  .btn.danger:hover { background: var(--bad-bg); }
+  .btn.primary {
+    width: 100%; font-size: 15px; font-weight: 600; padding: 10px 14px;
+    background: var(--accent); color: var(--accent-text); border-color: transparent;
+  }
+  .btn.primary:hover { background: var(--accent); filter: brightness(1.08); }
+  #enrollMsg { margin: 12px 0 0; font-size: 14px; min-height: 21px; }
+  #enrollMsg.ok { color: var(--ok); }
+  #enrollMsg.bad { color: var(--bad); }
+
+  ul { list-style: none; margin: 0; padding: 0; }
+  li.person { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--border); }
+  li.person:first-child { border-top: 0; padding-top: 0; }
+  li.person .name { font-weight: 600; }
+  li.person .count { color: var(--muted); font-size: 13px; margin-left: 8px; }
+
+  #present { margin: 0 0 12px; }
+  .table-wrap { max-height: 300px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; }
+  th {
+    position: sticky; top: 0; background: var(--card); color: var(--muted); font-weight: 600;
+    font-size: 12px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border);
+  }
+  td { border-top: 1px solid var(--border); }
+  tbody tr:first-child td { border-top: 0; }
+  td.time { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.empty { color: var(--muted); text-align: center; padding: 18px; }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
+    background: rgba(0, 0, 0, .6); padding: 16px;
+  }
+  .overlay[hidden] { display: none; }
+  .overlay-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 360px; text-align: center; }
+  .overlay-card h2 { font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--text); margin-bottom: 8px; }
+  .overlay-card p { margin: 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Face Recognition</h1>
+    <span class="sub">Live recognition, attendance and people</span>
+    <span class="spacer"></span>
+    <button type="button" class="btn danger" id="quitBtn">Quit app</button>
+  </header>
+
+  <main>
+    <div class="stack">
+      <section class="card">
+        <div class="card-head">
+          <h2>Live camera</h2>
+          <div class="actions">
+            <span id="camPill" class="pill">Connecting…</span>
+            <button type="button" class="btn" id="camBtn">Stop camera</button>
+          </div>
+        </div>
+        <div class="video-wrap">
+          <div class="placeholder" id="placeholder">Waiting for the camera…</div>
+          <img id="feed" alt="Live camera feed" hidden>
+        </div>
+        <div id="faces" class="chips" aria-live="polite"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Attendance</h2>
+          <div class="actions">
+            <a class="btn" href="/api/attendance.csv" download>Download CSV</a>
+            <button type="button" class="btn danger" id="clearBtn">Clear log</button>
+          </div>
+        </div>
+        <p id="present" class="muted"></p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Time</th></tr></thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="stack">
+      <section class="card">
+        <div class="card-head"><h2>Enroll a person</h2></div>
+        <form id="enrollForm" autocomplete="off">
+          <label class="field" for="name">Name</label>
+          <input type="text" id="name" maxlength="40" placeholder="e.g. satyam">
+          <label class="check"><input type="checkbox" id="replace"> Replace existing samples for this name</label>
+          <button class="btn primary" id="enrollBtn" type="submit">Capture and enroll</button>
+          <p id="enrollMsg" role="status"></p>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Enrolled people</h2></div>
+        <ul id="people"></ul>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="stopped" class="overlay" role="alert" hidden>
+  <div class="overlay-card">
+    <h2>App stopped</h2>
+    <p>The camera is released and the server has shut down. You can close this tab.</p>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  let cameraEnabled = true;
+  let streamOn = false;
+  let lastSeq = -1;
+  let quitting = false;
+
+  // Every call that changes something carries this header; the server rejects calls without it.
+  async function api(path, opts = {}) {
+    const res = await fetch(path, {
+      ...opts,
+      headers: { 'X-Requested-With': 'fetch', ...(opts.headers || {}) },
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* no body */ }
+    if (!res.ok) {
+      const msg = data && data.detail ? data.detail : res.statusText;
+      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    }
+    return data;
+  }
+
+  /* ---------- live camera ---------- */
+  function setStream(on) {
+    const img = $('feed');
+    if (on && !streamOn) {
+      img.src = '/video_feed?t=' + Date.now();   // fresh connection each time the camera starts
+      img.hidden = false;
+      streamOn = true;
+    } else if (!on && streamOn) {
+      img.removeAttribute('src');                // drops the connection and the frozen last frame
+      img.hidden = true;
+      streamOn = false;
+    }
+  }
+
+  function renderFaces(enabled, faces) {
+    const box = $('faces');
+    box.textContent = '';
+    if (!enabled || !faces.length) {
+      const s = document.createElement('span');
+      s.className = 'muted';
+      s.textContent = enabled ? 'No face in view' : 'Camera is off';
+      box.appendChild(s);
+      return;
+    }
+    faces.forEach((f) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (f.name === 'Unknown' ? ' unknown' : '');
+      chip.textContent = f.name;
+      if (f.distance !== null) {
+        const d = document.createElement('small');
+        d.textContent = f.distance.toFixed(2);
+        chip.appendChild(d);
+      }
+      box.appendChild(chip);
+    });
+  }
+
+  function applyStatus(s) {
+    cameraEnabled = s.camera_enabled;
+    const live = s.camera_enabled && s.camera_ok;
+    const pill = $('camPill');
+    pill.className = 'pill ' + (live ? 'live' : (s.error ? 'bad' : ''));
+    pill.textContent = live ? 'Camera live' : (!s.camera_enabled ? 'Camera off' : (s.error ? 'Camera problem' : 'Starting…'));
+    $('camBtn').textContent = s.camera_enabled ? 'Stop camera' : 'Start camera';
+    $('placeholder').textContent = s.error || (s.camera_enabled ? 'Waiting for the camera…' : 'Camera is off');
+    setStream(s.camera_enabled);
+    renderFaces(s.camera_enabled, s.faces);
+    if (s.log_seq !== lastSeq) {
+      lastSeq = s.log_seq;
+      loadAttendance();
+    }
+  }
+
+  async function refreshStatus() {
+    try {
+      applyStatus(await api('/api/status'));
+    } catch (e) {
+      const pill = $('camPill');
+      pill.className = 'pill bad';
+      pill.textContent = 'Server unreachable';
+    }
+  }
+
+  async function pollStatus() {
+    await refreshStatus();
+    if (!quitting) setTimeout(pollStatus, 600);
+  }
+
+  $('camBtn').addEventListener('click', async () => {
+    const btn = $('camBtn');
+    btn.disabled = true;
+    try {
+      await api('/api/camera/' + (cameraEnabled ? 'stop' : 'start'), { method: 'POST' });
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      btn.disabled = false;
+      refreshStatus();
+    }
+  });
+
+  $('quitBtn').addEventListener('click', async () => {
+    if (!confirm('Stop the camera and shut the app down?')) return;
+    try {
+      await api('/api/quit', { method: 'POST' });
+    } catch (e) {
+      alert(e.message);
+      return;
+    }
+    quitting = true;
+    setStream(false);
+    $('stopped').hidden = false;
+  });
+
+  /* ---------- attendance ---------- */
+  function cell(tag, text, cls) {
+    const el = document.createElement(tag);
+    el.textContent = text;
+    if (cls) el.className = cls;
+    return el;
+  }
+
+  async function loadAttendance() {
+    try {
+      const d = await api('/api/attendance');
+      $('present').textContent = d.present_today.length
+        ? 'Present today (' + d.present_today.length + '): ' + d.present_today.join(', ')
+        : 'Nobody marked present yet today.';
+      const body = $('logBody');
+      body.textContent = '';
+      if (!d.entries.length) {
+        const tr = document.createElement('tr');
+        const td = cell('td', 'No entries yet.', 'empty');
+        td.colSpan = 2;
+        tr.appendChild(td);
+        body.appendChild(tr);
+        return;
+      }
+      d.entries.forEach((e) => {
+        const tr = document.createElement('tr');
+        tr.append(cell('td', e.name), cell('td', e.time, 'time'));
+        body.appendChild(tr);
+      });
+    } catch (e) {
+      lastSeq = -1;   // try again on the next status poll
+    }
+  }
+
+  $('clearBtn').addEventListener('click', async () => {
+    if (!confirm('Clear the whole attendance log? This cannot be undone.')) return;
+    try {
+      await api('/api/attendance', { method: 'DELETE' });
+      loadAttendance();
+    } catch (e) {
+      alert(e.message);
+    }
+  });
+
+  /* ---------- people ---------- */
+  async function loadPeople() {
+    const list = $('people');
+    try {
+      const people = await api('/api/people');
+      list.textContent = '';
+      if (!people.length) {
+        const li = document.createElement('li');
+        li.className = 'muted';
+        li.textContent = 'Nobody enrolled yet.';
+        list.appendChild(li);
+        return;
+      }
+      people.forEach((p) => {
+        const li = document.createElement('li');
+        li.className = 'person';
+
+        const left = document.createElement('div');
+        left.append(
+          cell('span', p.name, 'name'),
+          cell('span', p.samples + (p.samples === 1 ? ' sample' : ' samples'), 'count')
+        );
+
+        const del = document.createElement('button');
+        del.className = 'btn danger';
+        del.type = 'button';
+        del.textContent = 'Delete';
+        del.addEventListener('click', () => removePerson(p.name));
+
+        li.append(left, del);
+        list.appendChild(li);
+      });
+    } catch (e) {
+      list.textContent = '';
+      const li = document.createElement('li');
+      li.className = 'muted';
+      li.textContent = 'Could not load people: ' + e.message;
+      list.appendChild(li);
+    }
+  }
+
+  async function removePerson(name) {
+    if (!confirm('Delete ' + name + ' and all their samples? Their past attendance entries stay.')) return;
+    try {
+      await api('/api/people/' + encodeURIComponent(name), { method: 'DELETE' });
+      loadPeople();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  function setMsg(text, kind) {
+    const el = $('enrollMsg');
+    el.textContent = text;
+    el.className = kind || '';
+  }
+
+  $('enrollForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const name = $('name').value.trim();
+    if (!name) { setMsg('Enter a name first.', 'bad'); return; }
+
+    const btn = $('enrollBtn');
+    btn.disabled = true;
+    setMsg('Capturing… look at the camera and hold still for a few seconds.', '');
+    try {
+      const r = await api('/api/enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, replace: $('replace').checked }),
+      });
+      setMsg('Saved ' + r.enrolled + ' samples for ' + r.name + '.', 'ok');
+      $('name').value = '';
+      loadPeople();
+    } catch (e) {
+      setMsg(e.message, 'bad');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  loadPeople();
+  pollStatus();
+</script>
+</body>
+</html>
