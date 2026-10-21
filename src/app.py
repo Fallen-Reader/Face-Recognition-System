@@ -1,15 +1,3 @@
-"""
-FastAPI backend for the face recognition project.
-
-Run from inside src/:
-    python app.py
-then open http://127.0.0.1:8000
-(use the "Quit app" button on the page to stop everything, no terminal needed)
-
-A background thread owns the webcam, runs detect -> encode -> match, and writes
-attendance rows. The web page just watches the result (MJPEG video + JSON).
-"""
-
 import asyncio
 import csv
 import importlib
@@ -34,7 +22,7 @@ import config
 
 
 def _import(attr, *module_names):
-    """Your files may be lowercase (detector.py) or capitalised (Detector.py)."""
+    
     for name in module_names:
         try:
             return getattr(importlib.import_module(name), attr)

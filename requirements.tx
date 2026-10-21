@@ -1,5 +1,13 @@
-opencv-python==4.8.1.78
-face-recognition==1.3.0
-numpy==1.24.3
-Pillow==10.0.0
-streamlit==1.28.0
+# Face recognition
+face_recognition>=1.3.0
+face_recognition_models>=0.3.0
+dlib                 # compiles from source: needs cmake + a C++ compiler (see README)
+opencv-python>=4.8
+numpy
+
+# face_recognition_models still does `import pkg_resources`, which setuptools 82+ removed
+setuptools<82
+
+# Web app
+fastapi
+uvicorn[standard]
